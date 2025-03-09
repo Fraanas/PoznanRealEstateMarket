@@ -1,0 +1,65 @@
+import psycopg2
+from psycopg2 import sql
+import logging
+from config.db_configs import *
+
+logger = logging.getLogger(__name__)
+
+def create_connection():
+    """
+    Create a PostgreSQL database connection
+    :return:
+    """
+    try:
+        connection = psycopg2.connect(
+            dbname=DB_CONFIG["dbname"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+            host=DB_CONFIG["host"],
+            port=DB_CONFIG["port"]
+        )
+        return connection
+    except Exception as e:
+        logger.error(f"Error creating connection: {e}")
+        raise
+
+
+def create_table():
+    """
+    Create the 'properties' table in the database
+    """
+    connection = create_connection()
+    if connection:
+        cursor = connection.cursor()
+
+
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS properties (
+        db_id SERIAL PRIMARY KEY,  -- ID generowane przez bazę
+        property_id BIGINT UNIQUE,  -- ID nieruchomości, które nie może się powtarzać
+        price DECIMAL(10, 2),
+        square DECIMAL(10, 2),
+        price_per_sqm DECIMAL(10, 2),
+        rooms INT,
+        date DATE,
+        url VARCHAR(255),
+        street VARCHAR(255),
+        district_1 VARCHAR(255),
+        district_2 VARCHAR(255),
+        city VARCHAR(255),
+        state VARCHAR(255)
+        );
+        """
+
+        try:
+            cursor.execute(create_table_query)
+            connection.commit()
+            print("Table 'properties' created successfully")
+        except Exception as e:
+            print(f"Error creating table: {e}")
+        finally:
+            cursor.close()
+            connection.close()
+
+
+create_table()

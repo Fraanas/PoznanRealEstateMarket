@@ -1,0 +1,4 @@
+**/config
+**/.venv
+/src/notebooks
+poznan_properties.csv

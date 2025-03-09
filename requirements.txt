@@ -1,0 +1,9 @@
+ipython
+psycopg2
+requests
+pandas
+logging
+datetime
+beautifulsoup4
+urljoin
+numpy
