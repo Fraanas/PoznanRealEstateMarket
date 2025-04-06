@@ -4,6 +4,7 @@ import sys
 import time
 from datetime import datetime
 from urllib.parse import urljoin
+import random
 
 import pandas as pd
 import requests
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class WebScraper:
-    def __init__(self, main_url=MAIN_URL, base_url=BASE_URL, headers=HEADERS, max_pages=1, output_dir="../PolandPropertyScraper/project/data" ):
+    def __init__(self, main_url=MAIN_URL, base_url=BASE_URL, headers=HEADERS, max_pages=1, output_dir="../project/data" ):
         self.main_url = main_url
         self.base_url = base_url
         self.headers = headers
@@ -65,6 +66,42 @@ class WebScraper:
         except (IndexError, AttributeError):
             return None
 
+    @staticmethod
+    def safe_extract_info(soup, tag, attrs):
+        """
+        Extracts key-value pairs from property info section.
+        Args:
+            soup (BeautifulSoup): BeautifulSoup object to search
+            tag (str): Tag to find
+            attrs (dict): Attributes to match
+        Returns:
+            dict: Dictionary with extracted key-value pairs
+        """
+        try:
+            elements = soup.find_all(tag, attrs=attrs)
+            if not elements:
+                logger.warning("No elements found in info section")
+                return {}
+
+            text_list = [el.get_text(strip=True) for el in elements]
+            if not text_list:
+                logger.warning("Extracted info is empty")
+                return {}
+
+            # create key:value
+            data = {}
+            for i in range(0, len(text_list) - 1, 2):
+                key = text_list[i].replace(":", "").strip()
+                value = text_list[i + 1].strip()
+                if value.lower() == "brak informacji":
+                    value = None
+                data[key] = value
+
+            logger.info(f"Extracted info data: {data}")
+            return data
+        except Exception as e:
+            logger.error(f"Error extracting info section: {e}")
+            return {}
 
 
 
@@ -96,7 +133,7 @@ class WebScraper:
                 # stop if there are no more pages
                 if not page_links:
                     break
-                time.sleep(0.5)  # Delay beetween requests
+                time.sleep(random.uniform(0.5,2.5))  # Delay beetween requests
 
             except Exception as e:
                 logger.error(f"Error while downloading the page {page}: {e}")
@@ -129,7 +166,7 @@ class WebScraper:
                 'price_per_sqm': WebScraper.safe_extract(soup, **SCRAPING_CONFIG['price_per_sqm']),
                 'rooms': WebScraper.safe_extract(soup, **SCRAPING_CONFIG['rooms']),
                 'location': WebScraper.safe_extract(soup, **SCRAPING_CONFIG['location']),
-                #'info' : WebScraper.safe_extract(soup, **SCRAPING_CONFIG['info']),
+                'info' : WebScraper.safe_extract_info(soup, **SCRAPING_CONFIG['info']),
                 'date': current_date,
                 'url': url
             }
@@ -138,7 +175,6 @@ class WebScraper:
         except Exception as e:
             logger.error(f"Error during the scraping {url}: {e}")
             return None
-
 
 
 
@@ -157,7 +193,7 @@ class WebScraper:
             listing_data = self.scrape_listing(url)
             if listing_data:
                 all_data.append(listing_data)
-            time.sleep(0.5)
+            time.sleep(random.uniform(0.5,2.5))
 
         return pd.DataFrame(all_data)
 
@@ -179,8 +215,15 @@ class WebScraper:
         '''
         try:
             #df = df.fillna('')
-            data = df[['property_id', 'price', 'square', 'price_per_sqm', 'rooms', 'date',
-                       'url', 'street', 'district_1', 'district_2', 'city', 'state']].values.tolist()
+            data = df[['property_id', 'price', 'square', 'price_per_sqm', 'rooms', 'date', 'url',
+                        'street', 'district_1', 'district_2', 'city', 'state', 'heating', 'floor',
+                        'rent', 'bld_condition', 'market', 'ownership', 'availability', 'seller_type',
+                        'extra_info', 'elevator', 'building_type', 'building_year', 'security',
+                        'media', 'building_material', 'windows', 'equipment']].values.tolist()
+
+            logger.info(f"Columns in DataFrame before saving: {df.columns.tolist()}")
+            logger.info(f"First row: {df.iloc[0].to_dict()}")
+
             insert_data(data)
             logger.info(f"Successfully saved {len(data)} properties to the database.")
 
@@ -192,6 +235,6 @@ class WebScraper:
     def run(self):
         links_list = self.get_links()
         df_listing = self.scrape_all_listings(links_list)
-        self.save_to_file(df_listing)
+        #self.save_to_file(df_listing)
         self.save_to_db(df_listing)
         print(f"Successfully scraped {len(df_listing)} properties")
